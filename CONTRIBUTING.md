@@ -1,0 +1,59 @@
+# Contributing
+
+## Linting
+
+Lua sources must pass `luacheck stampla-publisher.lrplugin` — CI
+runs the same check. `.luacheckrc` also encodes what Lightroom's Lua
+sandbox actually provides (for instance `os.rename` does not exist at
+runtime), so treat its warnings as real errors, not style advice.
+
+## Manual test checklist
+
+Adobe ships no test harness for the Lightroom SDK, so publish behavior
+is verified by hand against a real catalog before each release. Create
+a publish service pointing at a scratch folder and run through:
+
+Basics
+
+- [ ] Publish a few photos; files appear under the expected folder,
+      named master stem + suffix + rendered extension.
+- [ ] Edit a published photo and republish; the file is replaced and
+      no stray `.part` files remain.
+- [ ] Remove a photo from the collection and publish; the file is
+      moved to the trash (or deleted, or left, per the setting).
+
+Layouts
+
+- [ ] Collections layout: collection sets nest into folders
+      (`set/set/collection`).
+- [ ] Mirror layout: files land in the master's folder path below the
+      source root; a master outside the source root fails with a clear
+      error.
+
+Retargeting
+
+- [ ] Rename a collection: its photos are marked to republish, and the
+      next publish writes to the new folder and applies on-remove to
+      the old files.
+- [ ] Move a collection into a different set: same.
+- [ ] Change the filename suffix and republish: each file follows.
+- [ ] Rename a master in the catalog and republish: the published file
+      follows.
+
+Safety
+
+- [ ] Publish two virtual copies of one master into the same target:
+      the second fails with a clear error and the first file is intact.
+- [ ] Put a foreign file at a photo's target path: publish refuses to
+      overwrite it.
+
+Lifecycle
+
+- [ ] Delete a published collection: one confirmation, then the
+      recorded files are handled per the on-remove setting.
+- [ ] Delete the publish service: same, across all its collections.
+- [ ] With on-remove set to leave: all of the above leave files in
+      place.
+
+Most development happens on macOS, so a verification pass on Windows
+is especially welcome.
