@@ -1,3 +1,4 @@
+local LrApplication = import "LrApplication"
 local LrBinding = import "LrBinding"
 local LrDialogs = import "LrDialogs"
 local LrErrors = import "LrErrors"
@@ -157,7 +158,7 @@ local function relativeTo(root, path)
 end
 
 local function applyOnRemove(mode, path)
-	if mode == "leave" or LrFileUtils.exists(path) ~= "file" then
+	if not path or mode == "leave" or LrFileUtils.exists(path) ~= "file" then
 		return
 	end
 	if mode == "delete" then
@@ -284,5 +285,107 @@ function provider.deletePhotosFromPublishedCollection(publishSettings, photoIds,
 		deletedCallback(path)
 	end
 end
+
+local function onRemoveDescription(mode)
+	if mode == "delete" then
+		return "permanently deleted"
+	end
+	return "moved to the trash"
+end
+
+local function forEachPublishedPhoto(collectionOrSet, fn)
+	if collectionOrSet:type() == "LrPublishedCollection" then
+		for _, publishedPhoto in ipairs(collectionOrSet:getPublishedPhotos()) do
+			fn(publishedPhoto)
+		end
+	else
+		for _, child in ipairs(collectionOrSet:getChildCollections()) do
+			forEachPublishedPhoto(child, fn)
+		end
+		for _, childSet in ipairs(collectionOrSet:getChildCollectionSets()) do
+			forEachPublishedPhoto(childSet, fn)
+		end
+	end
+end
+
+function provider.shouldDeletePublishedCollection(publishSettings, info)
+	if publishSettings.onRemove == "leave" or not info.hasItemsOnService then
+		return nil
+	end
+	local answer = LrDialogs.confirm(
+		"Delete this published collection?",
+		"Its published files will be " .. onRemoveDescription(publishSettings.onRemove) .. ".",
+		"Delete", "Cancel")
+	return answer == "ok" and "delete" or "cancel"
+end
+
+function provider.deletePublishedCollection(publishSettings, info)
+	local removed = {}
+	for _, path in ipairs(info.photoIds or {}) do
+		removed[path] = true
+		applyOnRemove(publishSettings.onRemove, path)
+	end
+	-- Deleting a whole collection set: photoIds covers a single collection,
+	-- so walk the descendants too. The pcall guards against the collection
+	-- objects already being gone; applyOnRemove tolerates repeats.
+	pcall(function()
+		forEachPublishedPhoto(info.publishedCollection, function(publishedPhoto)
+			local path = publishedPhoto:getRemoteId()
+			if path and not removed[path] then
+				applyOnRemove(publishSettings.onRemove, path)
+			end
+		end)
+	end)
+end
+
+function provider.shouldDeletePublishService(publishSettings, info)
+	if publishSettings.onRemove == "leave" or (info.nPhotos or 0) == 0 then
+		return nil
+	end
+	local answer = LrDialogs.confirm(
+		"Delete this publish service?",
+		"Its published files will be " .. onRemoveDescription(publishSettings.onRemove) .. ".",
+		"Delete", "Cancel")
+	return answer == "ok" and "delete" or "cancel"
+end
+
+function provider.willDeletePublishService(publishSettings, info)
+	local service = info.publishService
+	for _, collection in ipairs(service:getChildCollections()) do
+		forEachPublishedPhoto(collection, function(publishedPhoto)
+			applyOnRemove(publishSettings.onRemove, publishedPhoto:getRemoteId())
+		end)
+	end
+	for _, childSet in ipairs(service:getChildCollectionSets()) do
+		forEachPublishedPhoto(childSet, function(publishedPhoto)
+			applyOnRemove(publishSettings.onRemove, publishedPhoto:getRemoteId())
+		end)
+	end
+end
+
+-- Renaming or re-nesting a collection retargets every photo in it, but
+-- Lightroom does not queue them on its own: flag them so the next Publish
+-- heals the tree. Irrelevant in mirror layout, where collections do not
+-- influence the target path.
+function provider.renamePublishedCollection(publishSettings, info)
+	if publishSettings.folderLayout == "mirror" then
+		return
+	end
+	local flagged = pcall(function()
+		local catalog = LrApplication.activeCatalog()
+		catalog:withWriteAccessDo("Mark to republish", function()
+			forEachPublishedPhoto(info.publishedCollection, function(publishedPhoto)
+				publishedPhoto:setEditedFlag(true)
+			end)
+		end, { timeout = 30 })
+	end)
+	if not flagged then
+		LrDialogs.message("Stampla Publisher",
+			"Could not mark the collection's photos to republish."
+				.. " Select them and use Mark to Republish, then publish.", "warning")
+	end
+end
+
+provider.reparentPublishedCollection = provider.renamePublishedCollection
 
 return provider
