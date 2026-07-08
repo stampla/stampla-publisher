@@ -98,7 +98,7 @@ function provider.sectionsForTopOfDialog(f, propertyTable)
 				},
 				f:column {
 					f:static_text {
-						title = "{ext} — the master's file extension",
+						title = "{ext} — the original file's extension",
 						font = "<system/small>",
 					},
 					f:static_text {
@@ -217,8 +217,8 @@ function provider.processRenderedPhotos(_, exportContext)
 	local mirrorRoots
 
 	if layout == "mirror" then
-		-- Mirror the catalog's Folders panel: each master publishes to its
-		-- folder path relative to the catalog root folder containing it.
+		-- Mirror the catalog's Folders panel: each photo publishes to its
+		-- original's folder path relative to the catalog root folder containing it.
 		-- Longest root wins, in case roots nest.
 		mirrorRoots = {}
 		for _, folder in ipairs(LrApplication.activeCatalog():getFolders()) do
@@ -251,11 +251,11 @@ function provider.processRenderedPhotos(_, exportContext)
 		if ok then
 			local targetDir = collectionDir
 			if layout == "mirror" then
-				local masterFolder = LrPathUtils.parent(
+				local originalFolder = LrPathUtils.parent(
 					rendition.photo:getRawMetadata("path"))
 				local rel
 				for _, rootPath in ipairs(mirrorRoots) do
-					rel = relativeTo(rootPath, masterFolder)
+					rel = relativeTo(rootPath, originalFolder)
 					if rel then
 						break
 					end
@@ -263,8 +263,8 @@ function provider.processRenderedPhotos(_, exportContext)
 				if rel == nil then
 					targetDir = nil
 					LrFileUtils.delete(rendered)
-					rendition:uploadFailed("Master is not under any catalog folder: "
-						.. masterFolder)
+					rendition:uploadFailed("The photo's original file is not under any catalog folder: "
+						.. originalFolder)
 				elseif rel == "" then
 					targetDir = root
 				else
@@ -274,10 +274,10 @@ function provider.processRenderedPhotos(_, exportContext)
 
 			if targetDir then
 				LrFileUtils.createAllDirectories(targetDir)
-				local masterName = rendition.photo:getFormattedMetadata("fileName")
-				local stem = LrPathUtils.removeExtension(masterName)
+				local originalName = rendition.photo:getFormattedMetadata("fileName")
+				local stem = LrPathUtils.removeExtension(originalName)
 				local suffix = expandSuffix(suffixTemplate, {
-					ext = LrPathUtils.extension(masterName) or "",
+					ext = LrPathUtils.extension(originalName) or "",
 				})
 				local name = stem .. suffix .. "." .. LrPathUtils.extension(rendered)
 				local target = LrPathUtils.child(targetDir, name)
@@ -286,7 +286,7 @@ function provider.processRenderedPhotos(_, exportContext)
 				if claimed[target] then
 					LrFileUtils.delete(rendered)
 					rendition:uploadFailed("Two photos publish to the same file: " .. target
-						.. ". Rename one master or give the virtual copy its own name.")
+						.. ". Rename one original or give the virtual copy its own name.")
 				elseif LrFileUtils.exists(target) and recorded ~= target then
 					LrFileUtils.delete(rendered)
 					rendition:uploadFailed(name
