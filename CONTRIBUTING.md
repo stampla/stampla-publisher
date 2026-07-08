@@ -36,7 +36,14 @@ Retargeting
       next publish writes to the new folder and applies on-remove to
       the old files.
 - [ ] Move a collection into a different set: same.
-- [ ] Change the filename suffix and republish: each file follows.
+- [ ] Change the filename suffix in the service settings: the plugin
+      offers to mark everything to republish; accepting rebuilds the
+      tree, with old names handled per on-remove.
+- [ ] Suffix `_{ext}_lr`: a raw master publishes as `…_nef_lr.jpg`
+      (extension as spelled in the master; `{ext:lc}` lowercases it),
+      and a same-stem tif publishes beside it without colliding.
+- [ ] Suffix with a typo'd token (`_{extt}`): publish fails up front
+      with the supported-token list, nothing rendered.
 - [ ] Rename a master in the catalog and republish: the published file
       follows.
 
