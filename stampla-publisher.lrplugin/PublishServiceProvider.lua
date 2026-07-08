@@ -4,6 +4,7 @@ local LrDialogs = import "LrDialogs"
 local LrErrors = import "LrErrors"
 local LrFileUtils = import "LrFileUtils"
 local LrPathUtils = import "LrPathUtils"
+local LrPrefs = import "LrPrefs"
 local LrView = import "LrView"
 
 local bind = LrView.bind
@@ -117,7 +118,25 @@ function provider.sectionsForTopOfDialog(f, propertyTable)
 				f:edit_field {
 					value = bind "filenameSuffix",
 					immediate = true,
-					width_in_chars = 8,
+					width_in_chars = 12,
+				},
+			},
+
+			f:row {
+				spacing = f:label_spacing(),
+				f:static_text {
+					title = "",
+					width = LrView.share "stampla_label",
+				},
+				f:column {
+					f:static_text {
+						title = "{ext} — the master's file extension",
+						font = "<system/small>",
+					},
+					f:static_text {
+						title = "{ext:lc} / {ext:uc} — lowercased / uppercased",
+						font = "<system/small>",
+					},
 				},
 			},
 
@@ -139,6 +158,43 @@ function provider.sectionsForTopOfDialog(f, propertyTable)
 			},
 		},
 	}
+end
+
+-- The filename suffix understands {token} and {token:modifier} forms,
+-- e.g. _{ext}_lr publishes photo.nef as photo_nef_lr.jpg. Tokens are
+-- computed per photo; registries below are the extension points.
+local SUFFIX_TOKENS = { ext = true }
+local SUFFIX_MODIFIERS = { lc = string.lower, uc = string.upper }
+
+local function parseToken(body)
+	local token, modifier = body:match("^(%w+):(%w+)$")
+	if token then
+		return token, modifier
+	end
+	return body:match("^(%w+)$"), nil
+end
+
+-- First unsupported {…} construct in the template, or nil if all valid.
+local function badTokenIn(template)
+	for body in template:gmatch("{([^{}]*)}") do
+		local token, modifier = parseToken(body)
+		if not (token and SUFFIX_TOKENS[token])
+			or (modifier and not SUFFIX_MODIFIERS[modifier]) then
+			return "{" .. body .. "}"
+		end
+	end
+	return nil
+end
+
+local function expandSuffix(template, values)
+	return (template:gsub("{([^{}]*)}", function(body)
+		local token, modifier = parseToken(body)
+		local value = values[token]
+		if modifier then
+			value = SUFFIX_MODIFIERS[modifier](value)
+		end
+		return value
+	end))
 end
 
 -- Path of `path` relative to `root`: "" if equal, nil if outside.
@@ -179,6 +235,13 @@ function provider.processRenderedPhotos(_, exportContext)
 	end
 	if LrFileUtils.exists(root) ~= "directory" then
 		LrErrors.throwUserError("Publish root does not exist: " .. root)
+	end
+
+	local suffixTemplate = settings.filenameSuffix or ""
+	local badToken = badTokenIn(suffixTemplate)
+	if badToken then
+		LrErrors.throwUserError("Unknown token " .. badToken
+			.. " in the filename suffix. Supported: {ext}, {ext:lc}, {ext:uc}.")
 	end
 
 	local layout = settings.folderLayout or "collections"
@@ -233,10 +296,12 @@ function provider.processRenderedPhotos(_, exportContext)
 
 			if targetDir then
 				LrFileUtils.createAllDirectories(targetDir)
-				local stem = LrPathUtils.removeExtension(
-					rendition.photo:getFormattedMetadata("fileName"))
-				local name = stem .. (settings.filenameSuffix or "")
-					.. "." .. LrPathUtils.extension(rendered)
+				local masterName = rendition.photo:getFormattedMetadata("fileName")
+				local stem = LrPathUtils.removeExtension(masterName)
+				local suffix = expandSuffix(suffixTemplate, {
+					ext = LrPathUtils.extension(masterName) or "",
+				})
+				local name = stem .. suffix .. "." .. LrPathUtils.extension(rendered)
 				local target = LrPathUtils.child(targetDir, name)
 				local recorded = rendition.publishedPhotoId
 
@@ -363,6 +428,27 @@ function provider.willDeletePublishService(publishSettings, info)
 	end
 end
 
+-- Flag every published photo in the given collections/sets as edited, so
+-- the next Publish rewrites it. Returns false if the catalog write failed.
+local function markForRepublish(collectionsOrSets)
+	return (pcall(function()
+		local catalog = LrApplication.activeCatalog()
+		catalog:withWriteAccessDo("Mark to republish", function()
+			for _, node in ipairs(collectionsOrSets) do
+				forEachPublishedPhoto(node, function(publishedPhoto)
+					publishedPhoto:setEditedFlag(true)
+				end)
+			end
+		end, { timeout = 30 })
+	end))
+end
+
+local function warnMarkFailed(what)
+	LrDialogs.message("Stampla Publisher",
+		"Could not mark " .. what .. " to republish."
+			.. " Select the photos and use Mark to Republish, then publish.", "warning")
+end
+
 -- Renaming or re-nesting a collection retargets every photo in it, but
 -- Lightroom does not queue them on its own: flag them so the next Publish
 -- heals the tree. Irrelevant in mirror layout, where collections do not
@@ -371,21 +457,71 @@ function provider.renamePublishedCollection(publishSettings, info)
 	if publishSettings.folderLayout == "mirror" then
 		return
 	end
-	local flagged = pcall(function()
-		local catalog = LrApplication.activeCatalog()
-		catalog:withWriteAccessDo("Mark to republish", function()
-			forEachPublishedPhoto(info.publishedCollection, function(publishedPhoto)
-				publishedPhoto:setEditedFlag(true)
-			end)
-		end, { timeout = 30 })
-	end)
-	if not flagged then
-		LrDialogs.message("Stampla Publisher",
-			"Could not mark the collection's photos to republish."
-				.. " Select them and use Mark to Republish, then publish.", "warning")
+	if not markForRepublish({ info.publishedCollection }) then
+		warnMarkFailed("the collection's photos")
 	end
 end
 
 provider.reparentPublishedCollection = provider.renamePublishedCollection
+
+-- Changing the publish root, layout, source root or suffix retargets every
+-- published photo, and Lightroom does not queue anything when settings
+-- change. A fingerprint of the naming-affecting settings is kept per
+-- service; when it changes, offer to mark everything for republish.
+local function namingFingerprint(settings)
+	return table.concat({
+		settings.publishRoot or "",
+		settings.folderLayout or "collections",
+		settings.sourceRoot or "",
+		settings.filenameSuffix or "",
+	}, "\n")
+end
+
+function provider.didCreateNewPublishService(publishSettings, info)
+	local prefs = LrPrefs.prefsForPlugin()
+	prefs["naming_" .. info.publishService.localIdentifier] = namingFingerprint(publishSettings)
+end
+
+function provider.didUpdatePublishService(publishSettings, info)
+	local prefs = LrPrefs.prefsForPlugin()
+	local key = "naming_" .. info.publishService.localIdentifier
+	local before = prefs[key]
+	local now = namingFingerprint(publishSettings)
+	prefs[key] = now
+	if not before or before == now then
+		return
+	end
+
+	local service = info.publishService
+	local nodes = {}
+	for _, collection in ipairs(service:getChildCollections()) do
+		nodes[#nodes + 1] = collection
+	end
+	for _, childSet in ipairs(service:getChildCollectionSets()) do
+		nodes[#nodes + 1] = childSet
+	end
+
+	local anyPublished = false
+	for _, node in ipairs(nodes) do
+		forEachPublishedPhoto(node, function()
+			anyPublished = true
+		end)
+		if anyPublished then
+			break
+		end
+	end
+	if not anyPublished then
+		return
+	end
+
+	local answer = LrDialogs.confirm(
+		"Publish settings affecting file names or locations changed.",
+		"Mark all published photos to republish? The next publish then rebuilds"
+			.. " the tree, applying the on-remove setting to the old files.",
+		"Mark to Republish", "Not Now")
+	if answer == "ok" and not markForRepublish(nodes) then
+		warnMarkFailed("the published photos")
+	end
+end
 
 return provider

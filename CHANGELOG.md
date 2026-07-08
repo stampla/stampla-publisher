@@ -27,3 +27,11 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   the folder tree heals on the next publish.
 - Duplicate publish targets fail with an error, and files the plugin
   has no record of writing are never overwritten or removed.
+- The filename suffix understands tokens: `{ext}` inserts the master's
+  file extension (`{ext:lc}` / `{ext:uc}` force its case), so published
+  files name their source and same-stem masters of different formats
+  publish side by side. Unknown tokens abort the publish with a clear
+  error.
+- Changing a service's naming-affecting settings (publish root, folder
+  layout, source root, suffix) offers to mark all published photos to
+  republish, so the tree rebuilds on the next publish.

@@ -9,11 +9,17 @@ collection sets and collections map to nested folders — a set `2026`
 holding a collection `2026-07` publishes into `<root>/2026/2026-07` —
 or the service mirrors the masters' own folder tree below a
 configured source root. Either way, every published file is named
-after its master with a configurable suffix:
+after its master with a configurable suffix. The suffix understands
+`{ext}` — the master's extension, with `{ext:lc}` / `{ext:uc}` case
+modifiers — so a published file can name its own source:
 
 ```
-20260703_150727_9b677b64.nef  ->  <root>/2026/2026-07/20260703_150727_9b677b64_lr.jpg
+suffix _lr:        20260703_150727_9b677b64.nef  ->  <root>/2026/20260703_150727_9b677b64_lr.jpg
+suffix _{ext}_lr:  20260703_150727_9b677b64.nef  ->  <root>/2026/20260703_150727_9b677b64_nef_lr.jpg
 ```
+
+With the extension in the name, a raw capture and the retouched tif
+beside it publish as distinguishable files instead of colliding.
 
 Republishing an edited photo replaces its file; removing a photo from
 a collection moves its file to the trash (configurable: trash, delete,
