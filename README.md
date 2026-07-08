@@ -18,7 +18,8 @@ or leave). The plugin never touches a file it did not write.
 
 ## Status
 
-Early development; not installable yet.
+Early development. The walking skeleton publishes, republishes and
+removes; expect rough edges beyond the happy path.
 
 ## License
 
