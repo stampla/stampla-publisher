@@ -104,7 +104,8 @@ end
 
 function provider.processRenderedPhotos(_, exportContext)
 	local settings = exportContext.propertyTable
-	local collectionName = exportContext.publishedCollectionInfo.name
+	local collectionInfo = exportContext.publishedCollectionInfo
+	local collectionName = collectionInfo.name
 
 	local root = settings.publishRoot
 	if not root or root == "" then
@@ -114,7 +115,14 @@ function provider.processRenderedPhotos(_, exportContext)
 		LrErrors.throwUserError("Publish root does not exist: " .. root)
 	end
 
-	local targetDir = LrPathUtils.child(root, collectionName)
+	-- Collection sets nest into subfolders: the target folder is the
+	-- publish root joined with each ancestor set's name, then the
+	-- collection's own name.
+	local targetDir = root
+	for _, parent in ipairs(collectionInfo.parents or {}) do
+		targetDir = LrPathUtils.child(targetDir, parent.name)
+	end
+	targetDir = LrPathUtils.child(targetDir, collectionName)
 	LrFileUtils.createAllDirectories(targetDir)
 
 	local nRenditions = exportContext.exportSession:countRenditions()
