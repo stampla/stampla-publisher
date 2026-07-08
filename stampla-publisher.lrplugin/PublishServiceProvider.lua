@@ -157,16 +157,15 @@ function provider.processRenderedPhotos(_, exportContext)
 					rendition:uploadFailed("Could not write to " .. targetDir)
 				else
 					LrFileUtils.delete(target)
-					local renamed, message = os.rename(partial, target)
-					if renamed then
+					LrFileUtils.move(partial, target)
+					if LrFileUtils.exists(target) == "file" then
 						rendition:recordPublishedPhotoId(target)
 						if recorded and recorded ~= target then
 							applyOnRemove(settings.onRemove, recorded)
 						end
 					else
 						LrFileUtils.delete(partial)
-						rendition:uploadFailed(message
-							or ("Could not move rendered file into " .. targetDir))
+						rendition:uploadFailed("Could not move rendered file into " .. targetDir)
 					end
 				end
 			end
