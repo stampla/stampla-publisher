@@ -1,5 +1,4 @@
 local LrApplication = import "LrApplication"
-local LrBinding = import "LrBinding"
 local LrDialogs = import "LrDialogs"
 local LrErrors = import "LrErrors"
 local LrFileUtils = import "LrFileUtils"
@@ -18,7 +17,6 @@ provider.hideSections = { "exportLocation", "fileNaming" }
 provider.exportPresetFields = {
 	{ key = "publishRoot", default = "" },
 	{ key = "folderLayout", default = "collections" },
-	{ key = "sourceRoot", default = "" },
 	{ key = "filenameSuffix", default = "_lr" },
 	{ key = "onRemove", default = "trash" },
 }
@@ -65,46 +63,16 @@ function provider.sectionsForTopOfDialog(f, propertyTable)
 			f:row {
 				spacing = f:label_spacing(),
 				f:static_text {
-					title = "Folder layout:",
+					title = "Folder structure:",
 					alignment = "right",
 					width = LrView.share "stampla_label",
 				},
 				f:popup_menu {
 					value = bind "folderLayout",
 					items = {
-						{ title = "Collection sets and collections as folders", value = "collections" },
-						{ title = "Mirror the masters' folder tree", value = "mirror" },
+						{ title = "From collections", value = "collections" },
+						{ title = "From catalog folders", value = "mirror" },
 					},
-				},
-			},
-
-			f:row {
-				spacing = f:label_spacing(),
-				f:static_text {
-					title = "Source root:",
-					alignment = "right",
-					width = LrView.share "stampla_label",
-				},
-				f:edit_field {
-					value = bind "sourceRoot",
-					fill_horizontal = 1,
-					enabled = LrBinding.keyEquals("folderLayout", "mirror"),
-				},
-				f:push_button {
-					title = "Browse…",
-					enabled = LrBinding.keyEquals("folderLayout", "mirror"),
-					action = function()
-						local chosen = LrDialogs.runOpenPanel {
-							title = "Choose source root",
-							canChooseFiles = false,
-							canChooseDirectories = true,
-							canCreateDirectories = false,
-							allowsMultipleSelection = false,
-						}
-						if chosen and chosen[1] then
-							propertyTable.sourceRoot = chosen[1]
-						end
-					end,
 				},
 			},
 
@@ -245,17 +213,20 @@ function provider.processRenderedPhotos(_, exportContext)
 	end
 
 	local layout = settings.folderLayout or "collections"
-	local sourceRoot = settings.sourceRoot
 	local collectionDir
+	local mirrorRoots
 
 	if layout == "mirror" then
-		if not sourceRoot or sourceRoot == "" then
-			LrErrors.throwUserError("Set a source root in the publish service settings"
-				.. " to mirror the masters' folder tree.")
+		-- Mirror the catalog's Folders panel: each master publishes to its
+		-- folder path relative to the catalog root folder containing it.
+		-- Longest root wins, in case roots nest.
+		mirrorRoots = {}
+		for _, folder in ipairs(LrApplication.activeCatalog():getFolders()) do
+			mirrorRoots[#mirrorRoots + 1] = folder:getPath()
 		end
-		if LrFileUtils.exists(sourceRoot) ~= "directory" then
-			LrErrors.throwUserError("Source root does not exist: " .. sourceRoot)
-		end
+		table.sort(mirrorRoots, function(a, b)
+			return #a > #b
+		end)
 	else
 		-- Collection sets nest into subfolders: the target folder is the
 		-- publish root joined with each ancestor set's name, then the
@@ -282,11 +253,18 @@ function provider.processRenderedPhotos(_, exportContext)
 			if layout == "mirror" then
 				local masterFolder = LrPathUtils.parent(
 					rendition.photo:getRawMetadata("path"))
-				local rel = relativeTo(sourceRoot, masterFolder)
+				local rel
+				for _, rootPath in ipairs(mirrorRoots) do
+					rel = relativeTo(rootPath, masterFolder)
+					if rel then
+						break
+					end
+				end
 				if rel == nil then
 					targetDir = nil
 					LrFileUtils.delete(rendered)
-					rendition:uploadFailed("Master is outside the source root: " .. masterFolder)
+					rendition:uploadFailed("Master is not under any catalog folder: "
+						.. masterFolder)
 				elseif rel == "" then
 					targetDir = root
 				else
@@ -464,7 +442,7 @@ end
 
 provider.reparentPublishedCollection = provider.renamePublishedCollection
 
--- Changing the publish root, layout, source root or suffix retargets every
+-- Changing the publish root, folder structure or suffix retargets every
 -- published photo, and Lightroom does not queue anything when settings
 -- change. A fingerprint of the naming-affecting settings is kept per
 -- service; when it changes, offer to mark everything for republish.
@@ -472,7 +450,6 @@ local function namingFingerprint(settings)
 	return table.concat({
 		settings.publishRoot or "",
 		settings.folderLayout or "collections",
-		settings.sourceRoot or "",
 		settings.filenameSuffix or "",
 	}, "\n")
 end
