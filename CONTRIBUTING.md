@@ -24,11 +24,10 @@ Basics
 
 Layouts
 
-- [ ] Collections layout: collection sets nest into folders
+- [ ] From collections: collection sets nest into folders
       (`set/set/collection`).
-- [ ] Mirror layout: files land in the master's folder path below the
-      source root; a master outside the source root fails with a clear
-      error.
+- [ ] From catalog folders: files land in the master's folder path
+      relative to its catalog root folder, matching the Folders panel.
 
 Retargeting
 

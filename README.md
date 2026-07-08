@@ -4,11 +4,11 @@ Publish photos and videos from Lightroom Classic into a plain folder
 tree — part of the [Stampla](https://github.com/stampla/stampla)
 toolset.
 
-Point a publish service at a folder and pick a folder layout:
-collection sets and collections map to nested folders — a set `2026`
-holding a collection `2026-07` publishes into `<root>/2026/2026-07` —
-or the service mirrors the masters' own folder tree below a
-configured source root. Either way, every published file is named
+Point a publish service at a folder and pick a folder structure:
+from collections — a set `2026` holding a collection `2026-07`
+publishes into `<root>/2026/2026-07` — or from catalog folders, where
+the published tree mirrors the Folders panel with no configuration at
+all. Either way, every published file is named
 after its master with a configurable suffix. The suffix understands
 `{ext}` — the master's extension, with `{ext:lc}` / `{ext:uc}` case
 modifiers — so a published file can name its own source:

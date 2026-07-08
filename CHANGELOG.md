@@ -11,9 +11,10 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 - Publish service provider for Lightroom Classic 10 and later.
 - Published files are named after the master's filename stem plus a
   configurable suffix (default `_lr`).
-- Two folder layouts per publish service: collection sets and
-  collections as nested folders, or a mirror of the masters' folder
-  tree below a configured source root.
+- Two folder structures per publish service: from collections
+  (collection sets and collections become nested folders), or from
+  catalog folders (the published tree mirrors the catalog's Folders
+  panel, relative to its root folders — nothing to configure).
 - Configurable on-remove behavior: move to trash (default), delete,
   or leave in place.
 - Renders land under a temporary name and are moved into place, so a
@@ -33,5 +34,5 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   publish side by side. Unknown tokens abort the publish with a clear
   error.
 - Changing a service's naming-affecting settings (publish root, folder
-  layout, source root, suffix) offers to mark all published photos to
-  republish, so the tree rebuilds on the next publish.
+  structure, suffix) offers to mark all published photos to republish,
+  so the tree rebuilds on the next publish.
