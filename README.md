@@ -1,7 +1,7 @@
 # Stampla Publisher
 
 Publish photos and videos from Lightroom Classic into a plain folder
-tree — part of the [stampla](https://github.com/stampla/stampla)
+tree — part of the [Stampla](https://github.com/stampla/stampla)
 toolset.
 
 Point a publish service at a folder and pick a folder layout:
