@@ -16,7 +16,7 @@ a publish service pointing at a scratch folder and run through:
 Basics
 
 - [ ] Publish a few photos; files appear under the expected folder,
-      named master stem + suffix + rendered extension.
+      named original stem + suffix + rendered extension.
 - [ ] Edit a published photo and republish; the file is replaced and
       no stray `.part` files remain.
 - [ ] Remove a photo from the collection and publish; the file is
@@ -26,7 +26,7 @@ Layouts
 
 - [ ] From collections: collection sets nest into folders
       (`set/set/collection`).
-- [ ] From catalog folders: files land in the master's folder path
+- [ ] From catalog folders: files land in the original's folder path
       relative to its catalog root folder, matching the Folders panel.
 
 Retargeting
@@ -38,17 +38,17 @@ Retargeting
 - [ ] Change the filename suffix in the service settings: the plugin
       offers to mark everything to republish; accepting rebuilds the
       tree, with old names handled per on-remove.
-- [ ] Suffix `_{ext}_lr`: a raw master publishes as `…_nef_lr.jpg`
-      (extension as spelled in the master; `{ext:lc}` lowercases it),
+- [ ] Suffix `_{ext}_lr`: a raw original publishes as `…_nef_lr.jpg`
+      (extension as spelled in the original; `{ext:lc}` lowercases it),
       and a same-stem tif publishes beside it without colliding.
 - [ ] Suffix with a typo'd token (`_{extt}`): publish fails up front
       with the supported-token list, nothing rendered.
-- [ ] Rename a master in the catalog and republish: the published file
+- [ ] Rename an original in the catalog and republish: the published file
       follows.
 
 Safety
 
-- [ ] Publish two virtual copies of one master into the same target:
+- [ ] Publish two virtual copies of one original into the same target:
       the second fails with a clear error and the first file is intact.
 - [ ] Put a foreign file at a photo's target path: publish refuses to
       overwrite it.

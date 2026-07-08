@@ -9,8 +9,8 @@ from collections — a set `2026` holding a collection `2026-07`
 publishes into `<root>/2026/2026-07` — or from catalog folders, where
 the published tree mirrors the Folders panel with no configuration at
 all. Either way, every published file is named
-after its master with a configurable suffix. The suffix understands
-`{ext}` — the master's extension, with `{ext:lc}` / `{ext:uc}` case
+after its original with a configurable suffix. The suffix understands
+`{ext}` — the original's extension, with `{ext:lc}` / `{ext:uc}` case
 modifiers — so a published file can name its own source:
 
 ```
