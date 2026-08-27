@@ -6,6 +6,30 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Republishing never destroys the previous published file before its
+  replacement is safely in place: the old file is parked as `.bak` and
+  restored if the swap fails, and every copy's size is verified before
+  the render is consumed.
+- Renaming or re-nesting a collection *set* marks its whole subtree to
+  republish, exactly like renaming a collection — previously the tree
+  silently split across the old and new names.
+- Removing photos is honest about failure: an unreachable publish root
+  removes nothing (instead of making Lightroom forget files that still
+  exist), and files that could not be removed stay recorded and are
+  reported.
+- Path comparisons fold case and normalize separators, so respelling
+  the publish root no longer wedges every rendition behind "already
+  exists but was not published by this plugin".
+- Collection names and suffix literals are validated against path
+  separators and Windows-forbidden characters up front.
+- The settings-change fingerprint is kept per catalog, survives a "Not
+  Now" (the next settings edit offers the republish again), and is
+  cleaned up when the service is deleted.
+- One unexpected per-photo error fails that rendition, not the whole
+  publish queue.
+
 ### Added
 
 - Publish service provider for Lightroom Classic 10 and later.
